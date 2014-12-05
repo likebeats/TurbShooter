@@ -1,0 +1,20 @@
+aspect_ratio: '16:9'
+canvas_main: app.canvas.js
+cover_art: cover_art.png
+deploy_files:
+- app.canvas.js
+- mapping_table.json
+- staticmax/*
+deployed: Never
+engine_version: '0.28'
+flash_main: ''
+has_notifications: false
+is_multiplayer: false
+is_temp: false
+mapping_table: mapping_table.json
+modified: 13:35 | 05/12/2014
+path: /Users/manny/Desktop/TurbShooter/turbulenz_engine/apps/turbShooter
+plugin_main: ''
+slug: turbshooter
+title: TurbShooter
+title_logo: ''

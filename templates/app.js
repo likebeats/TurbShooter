@@ -56,6 +56,9 @@
 /*{{ javascript('protolib/simplesprite.js') }}*/
 /*{{ javascript('protolib/soundsourcemanager.js') }}*/
 
+/*{{ javascript("scripts/dynamiccameracontroller.js") }}*/
+/*{{ javascript("scripts/motion.js") }}*/
+/*{{ javascript("scripts/sceneloader.js") }}*/
 /*{{ javascript('scripts/app.js') }}*/
 
 TurbulenzEngine.onload = function onloadFn()

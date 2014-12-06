@@ -3,6 +3,8 @@
 /* global Config: false*/
 /* global Physics2DDevice: false*/
 /* global Physics2DDebugDraw: false*/
+/* global DynamicCameraController: false*/
+/* global Camera: false*/
 
 function Application() {}
 Application.prototype =

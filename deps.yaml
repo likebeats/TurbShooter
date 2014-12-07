@@ -16,6 +16,7 @@
 - shaders/forwardrendering.cgfx
 - shaders/forwardrenderingshadows.cgfx
 - shaders/simplesprite.cgfx
+- shaders/generic2D.cgfx
 - textures/default_light.png
 - textures/opensans-8_0.png
 - textures/opensans-16_0.png
@@ -29,5 +30,6 @@
 - fonts/opensans-128.fnt
 - textures/crate.jpg
 - models/ship.dae
+- models/cube.dae
 - textures/ship.png
 - textures/nightsky_gradient.png

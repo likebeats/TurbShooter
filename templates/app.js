@@ -46,6 +46,11 @@
 /*{{ javascript('jslib/services/turbulenzbridge.js') }}*/
 /*{{ javascript('jslib/services/turbulenzservices.js') }}*/
 
+/*{{ javascript("jslib/floor.js") }}*/
+/*{{ javascript("jslib/mouseforces.js") }}*/
+/*{{ javascript('jslib/scenedebugging.js') }}*/
+/*{{ javascript('jslib/physicsmanager.js') }}*/
+
 /*{{ javascript('protolib/debugdraw.js') }}*/
 /*{{ javascript('protolib/duimanager.js') }}*/
 /*{{ javascript('protolib/jqueryextend.js') }}*/
@@ -59,6 +64,7 @@
 /*{{ javascript("scripts/dynamiccameracontroller.js") }}*/
 /*{{ javascript("scripts/motion.js") }}*/
 /*{{ javascript("scripts/sceneloader.js") }}*/
+/*{{ javascript("scripts/htmlcontrols.js") }}*/
 /*{{ javascript('scripts/app.js') }}*/
 
 TurbulenzEngine.onload = function onloadFn()

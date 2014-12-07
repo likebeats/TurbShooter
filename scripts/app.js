@@ -66,7 +66,7 @@ Application.prototype =
         var dynamicsWorld = this.dynamicsWorld = physicsDevice.createDynamicsWorld(dynamicsWorldParameters);
         var physicsManager = this.physicsManager = PhysicsManager.create(mathDevice, physicsDevice, dynamicsWorld);
 
-        // Floor is represented by a plane
+        // Create floor
         var floorShape = physicsDevice.createPlaneShape({
             normal: mathDevice.v3Build(0, 1, 0),
             distance: 0,
@@ -82,7 +82,7 @@ Application.prototype =
 
         var floorRigidBody = physicsDevice.createCollisionObject({
             shape: floorShape,
-            transform: mathDevice.m43BuildIdentity(),
+            transform: mathDevice.m43BuildTranslation(0, 0, 0),
             friction: 0.5,
             restitution: 0.3,
             group: physicsDevice.FILTER_STATIC,
@@ -91,32 +91,50 @@ Application.prototype =
 
         this.physicsManager.addNode(floorSceneNode, floorRigidBody);
 
-        // Create the collision box
+        // Create box
         var collisionBoxSize = mathDevice.v3Build(0.5, 0.5, 0.5);
         var boxShape = physicsDevice.createBoxShape({
             halfExtents: collisionBoxSize,
             margin: 0.001
         });
 
-        var boxSceneNode = SceneNode.create({
-            name: "Box1",
-            local: mathDevice.m43BuildTranslation(0, 0, 0),
-            dynamic: true,
-            disabled: false
-        });
-
-        var boxRigidBody = physicsDevice.createRigidBody({
+        var boxRigidbody = physicsDevice.createRigidBody({
             shape: boxShape,
             mass: 10.0,
             inertia: mathDevice.v3ScalarMul(boxShape.inertia, 10.0),
-            transform: mathDevice.m43BuildTranslation(0, 5, 0),
-            friction: 0.8,
+            transform: mathDevice.m43BuildTranslation(0, 7, 0),
+            friction: 0.1,
             restitution: 0.2,
-            angularDamping: 0.4,
-            linearVelocity: mathDevice.v3Build(0, 0, 0)
+            angularDamping: 0.4
         });
 
-        this.physicsManager.addNode(boxSceneNode, boxRigidBody);
+        var boxMesh = protolib.loadMesh({
+            mesh: "models/cube.dae",
+            v3Position: mathDevice.v3Build(0, 7, 0),
+            v3Size: mathDevice.v3Build(1.0, 1.0, 1.0)
+        });
+
+        this.physicsManager.addNode(boxMesh.node, boxRigidbody);
+
+        // Add light
+        protolib.setAmbientLightColor(mathDevice.v3Build(1, 1, 1));
+
+        // Controls
+        var settings = {
+            debug: false
+        }
+        protolib.addWatchVariable({
+            title: "Enable Debugging",
+            object: settings,
+            property: "debug",
+            group: "Settings",
+            type: protolib.watchTypes.SLIDER,
+            options: {
+                min: 0,
+                max: 1,
+                step: 1
+            }
+        });
 
         protolib.setPreDraw(function drawFn() {
 
@@ -129,7 +147,10 @@ Application.prototype =
         protolib.setPreRendererDraw(function renderDrawFn() {
 
             floor.render(graphicsDevice, camera);
-            scene.drawPhysicsGeometry(graphicsDevice, protolib.globals.shaderManager, camera, physicsManager);
+            if (settings.debug) {
+                scene.drawPhysicsNodes(graphicsDevice, protolib.globals.shaderManager, camera, physicsManager);
+                scene.drawPhysicsGeometry(graphicsDevice, protolib.globals.shaderManager, camera, physicsManager);
+            }
 
         });
 

@@ -49,22 +49,22 @@ Application.prototype =
 
         // Initialization code goes here
 
-        this.spawnTime = 60;
+        this.spawnTime = 30;
         this.spawnCount = 0;
-        this.enemiesList = [];
+        var enemiesList = this.enemiesList = [];
 
         var floor = this.floor = Floor.create(graphicsDevice, mathDevice);
         var cameraController = this.cameraController = CameraController.create(graphicsDevice, inputDevice, camera);
 
         // positio camera
-        protolib.moveCamera(mathDevice.v3Build(0, 8, -8));
-        protolib.setCameraDirection(mathDevice.v3Build(0, -0.8, -1));
+        protolib.moveCamera(mathDevice.v3Build(0, 12, -5));
+        protolib.setCameraDirection(mathDevice.v3Build(0, -1, -1));
 
         // Physics
         var physicsDeviceParameters = {};
         var physicsDevice = this.physicsDevice = TurbulenzEngine.createPhysicsDevice(physicsDeviceParameters);
 
-        var dynamicsWorldParameters = { gravity: [0, 0, 1] };
+        var dynamicsWorldParameters = { gravity: [0, 0, 0.5] };
         var dynamicsWorld = this.dynamicsWorld = physicsDevice.createDynamicsWorld(dynamicsWorldParameters);
         var physicsManager = this.physicsManager = PhysicsManager.create(mathDevice, physicsDevice, dynamicsWorld);
 
@@ -97,7 +97,14 @@ Application.prototype =
         function collisionMade(objectA, objectB, pairContacts) {
 
             window.console.log('collisionMade');
+
             // remove node & body from scene
+            $.each(enemiesList, function(i){
+                if(enemiesList[i].node.name === objectB.userData.name) {
+                    enemiesList.splice(i,1); // remove object from list
+                    return false;
+                }
+            })
             physicsManager.deleteNode(objectB.userData);
             if (objectB.userData.scene === scene) scene.removeRootNode(objectB.userData);
         }
@@ -115,9 +122,9 @@ Application.prototype =
             inertia: mathDevice.v3ScalarMul(shipShape.inertia, 10.0),
             transform: mathDevice.m43BuildTranslation(0, 0, 0),
             kinematic: true,
+            trigger: true,
             group: physicsDevice.FILTER_CHARACTER,
             mask: physicsDevice.FILTER_DEBRIS,
-            contactCallbacksMask: physicsDevice.FILTER_DEBRIS,
             //onAddedContacts: collisionMade,
             //onProcessedContacts: collisionMade,
             onRemovedContacts: collisionMade
@@ -138,7 +145,6 @@ Application.prototype =
 
         this.physicsManager.addNode(ship.node, shipRigidBody);
 
-        //shipRigidBody.active = true;
         window.console.log(this.ship);
 
         // Add light
@@ -163,7 +169,6 @@ Application.prototype =
 
         protolib.setPreDraw(function drawFn() {
 
-            //cameraController.update();
             dynamicsWorld.update();
             physicsManager.update();
 
@@ -194,8 +199,8 @@ Application.prototype =
         var physicsDevice = this.physicsDevice;
 
         // Create enemy
-
-        var max = 4;
+        var max = 10;
+        var spawnY = -100;
         var randomX = Math.random()*(max-(-max)+1)+(-max);
 
         var enemyShape = physicsDevice.createBoxShape({
@@ -205,20 +210,20 @@ Application.prototype =
 
         var enemyBody = this.enemyBody = physicsDevice.createRigidBody({
             shape: enemyShape,
-            mass: 10.0,
-            inertia: mathDevice.v3ScalarMul(enemyShape.inertia, 10.0),
-            transform: mathDevice.m43BuildTranslation(randomX, 0, -20),
+            mass: 1.0,
+            inertia: mathDevice.v3ScalarMul(enemyShape.inertia, 1.0),
+            transform: mathDevice.m43BuildTranslation(randomX, 0, spawnY),
             friction: 0.8,
             restitution: 0.2,
             angularDamping: 0.4,
+            linearVelocity: mathDevice.v3Build(0, 0, 10),
             group: physicsDevice.FILTER_DEBRIS,
-            mask: physicsDevice.FILTER_CHARACTER,
-            contactCallbacksMask: physicsDevice.FILTER_CHARACTER
+            mask: physicsDevice.FILTER_CHARACTER
         });
 
         var enemyMesh = protolib.loadMesh({
             mesh: "models/cube.dae",
-            v3Position: mathDevice.v3Build(randomX, 0, -20),
+            v3Position: mathDevice.v3Build(randomX, 0, spawnY),
             v3Size: mathDevice.v3Build(1.0, 1.0, 1.0)
         });
 
@@ -229,10 +234,6 @@ Application.prototype =
         };
 
         this.physicsManager.addNode(enemy.node, enemyBody);
-
-        //enemyBody.active = true;
-        //enemy.mesh.setPosition(mathDevice.v3Build( randomX, 0, -20));
-        //enemyMesh.node.setLocalTransform(mathDevice.v3Build(0, 0, -10));
 
         this.enemiesList.push(enemy);
 
@@ -256,14 +257,6 @@ Application.prototype =
                 this.spawnCount = 0;
             }
 
-            // Move enemies
-            for (var i = 0; i < this.enemiesList.length; i += 1)
-            {
-                var enemy = this.enemiesList[i];
-                var pos = enemy.mesh.v3Position;
-                //enemy.mesh.setPosition(mathDevice.v3Build( pos[0], pos[1], pos[2]+0.05));
-            }
-
             // Move player
             var keyDown = false;
 
@@ -282,10 +275,9 @@ Application.prototype =
             if (keyDown)
             {
                 this.ship.mesh.setPosition(mathDevice.v3Build( shipPosition[0], 0, 0));
-                this.ship.mesh.update();
             }
 
-
+            this.cameraController.update();
             protolib.endFrame();
         }
     },

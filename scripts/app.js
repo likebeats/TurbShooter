@@ -51,10 +51,11 @@ Application.prototype =
 
         this.spawnTime = 30;
         this.spawnCount = 0;
+        this.boundaryMax = 20;
         var enemiesList = this.enemiesList = [];
 
         var floor = this.floor = Floor.create(graphicsDevice, mathDevice);
-        var cameraController = this.cameraController = CameraController.create(graphicsDevice, inputDevice, camera);
+        //var cameraController = this.cameraController = CameraController.create(graphicsDevice, inputDevice, camera);
 
         // positio camera
         protolib.moveCamera(mathDevice.v3Build(0, 12, -5));
@@ -140,7 +141,7 @@ Application.prototype =
             node: shipMesh.node,
             body: shipRigidBody,
             mesh: shipMesh,
-            velocityX: 1
+            velocityX: 0.5
         };
 
         this.physicsManager.addNode(ship.node, shipRigidBody);
@@ -152,7 +153,7 @@ Application.prototype =
 
         // Controls
         var settings = {
-            debug: true
+            debug: false
         }
         protolib.addWatchVariable({
             title: "Enable Debugging",
@@ -199,9 +200,8 @@ Application.prototype =
         var physicsDevice = this.physicsDevice;
 
         // Create enemy
-        var max = 10;
         var spawnY = -100;
-        var randomX = Math.random()*(max-(-max)+1)+(-max);
+        var randomX = Math.random()*(this.boundaryMax-(-this.boundaryMax)+1)+(-this.boundaryMax);
 
         var enemyShape = physicsDevice.createBoxShape({
             halfExtents: mathDevice.v3Build(0.5, 0.5, 0.5),
@@ -262,6 +262,7 @@ Application.prototype =
 
             var shipVelocity = this.ship.velocityX;
             var shipPosition = this.ship.mesh.v3Position;
+            var posDelta = shipPosition[0];
             if (protolib.isKeyDown(protolib.keyCodes.LEFT))
             {
                 shipPosition[0] -= shipVelocity;
@@ -272,12 +273,14 @@ Application.prototype =
                 shipPosition[0] += shipVelocity;
                 keyDown = true;
             }
-            if (keyDown)
-            {
-                this.ship.mesh.setPosition(mathDevice.v3Build( shipPosition[0], 0, 0));
-            }
 
-            this.cameraController.update();
+            shipPosition[0] = protolib.utils.clamp(shipPosition[0], -this.boundaryMax-5, this.boundaryMax+5);
+            this.ship.mesh.setPosition(shipPosition);
+            posDelta = this.ship.mesh.v3Position[0] - posDelta;
+
+            if (posDelta != 0) protolib.moveCamera(mathDevice.v3Build(posDelta, 0, 0));
+            //this.cameraController.update();
+
             protolib.endFrame();
         }
     },

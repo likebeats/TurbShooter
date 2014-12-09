@@ -31,5 +31,8 @@
 - textures/crate.jpg
 - models/ship.dae
 - models/cube.dae
+- models/spaceship.dae
 - textures/ship.png
 - textures/nightsky_gradient.png
+- textures/DIFFUSE.png
+- textures/SPECULAR.png

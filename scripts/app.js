@@ -16,16 +16,6 @@ Application.prototype =
 
     init: function initFn()
     {
-        var errorCallback = function errorCallback(msg) {
-            window.alert(msg);
-        };
-        TurbulenzEngine.onerror = errorCallback;
-
-        var warningCallback = function warningCallback(msg) {
-            window.alert(msg);
-        };
-        TurbulenzEngine.onwarning = warningCallback;
-
         var protolib = this.protolib;
         var version = protolib.version;
         var requiredVersion = [0, 2, 1];
@@ -41,7 +31,6 @@ Application.prototype =
         var mathDevice = protolib.getMathDevice();
         var graphicsDevice = protolib.getGraphicsDevice();
         var inputDevice = protolib.getInputDevice();
-        var draw2D = protolib.globals.draw2D;
         var camera = protolib.globals.camera;
         var scene = protolib.globals.scene;
 
@@ -49,13 +38,17 @@ Application.prototype =
 
         // Initialization code goes here
 
-        this.spawnTime = 30;
+        this.spawnCooldown = 30;
         this.spawnCount = 0;
         this.boundaryMax = 20;
         var enemiesList = this.enemiesList = [];
 
+        this.bulletFireCooldown = 10;
+        this.bulletFireCount = 0;
+        var bulletsList = this.bulletsList = [];
+
         var floor = this.floor = Floor.create(graphicsDevice, mathDevice);
-        //var cameraController = this.cameraController = CameraController.create(graphicsDevice, inputDevice, camera);
+        var cameraController = this.cameraController = CameraController.create(graphicsDevice, inputDevice, camera);
 
         // positio camera
         protolib.moveCamera(mathDevice.v3Build(0, 12, -5));
@@ -65,37 +58,12 @@ Application.prototype =
         var physicsDeviceParameters = {};
         var physicsDevice = this.physicsDevice = TurbulenzEngine.createPhysicsDevice(physicsDeviceParameters);
 
-        var dynamicsWorldParameters = { gravity: [0, 0, 0.5] };
+        var dynamicsWorldParameters = { gravity: [0, 0, 0] };
         var dynamicsWorld = this.dynamicsWorld = physicsDevice.createDynamicsWorld(dynamicsWorldParameters);
         var physicsManager = this.physicsManager = PhysicsManager.create(mathDevice, physicsDevice, dynamicsWorld);
 
-        // Create floor
-        var floorShape = physicsDevice.createPlaneShape({
-            normal: mathDevice.v3Build(0, 1, 0),
-            distance: 0,
-            margin: 0.005
-        });
-
-        var floorSceneNode = SceneNode.create({
-            name: "Floor1",
-            local: mathDevice.m43BuildTranslation(0, 0, 0),
-            dynamic: true,
-            disabled: false
-        });
-
-        var floorRigidBody = physicsDevice.createCollisionObject({
-            shape: floorShape,
-            transform: mathDevice.m43BuildTranslation(0, 0, 0),
-            friction: 0.5,
-            restitution: 0.3,
-            group: physicsDevice.FILTER_STATIC,
-            mask: physicsDevice.FILTER_ALL
-        });
-
-        this.physicsManager.addNode(floorSceneNode, floorRigidBody);
-
         // Collision Detection
-        function collisionMade(objectA, objectB, pairContacts) {
+        function collisionWithShip(objectA, objectB, pairContacts) {
 
             window.console.log('collisionMade');
 
@@ -126,9 +94,9 @@ Application.prototype =
             trigger: true,
             group: physicsDevice.FILTER_CHARACTER,
             mask: physicsDevice.FILTER_DEBRIS,
-            //onAddedContacts: collisionMade,
-            //onProcessedContacts: collisionMade,
-            onRemovedContacts: collisionMade
+            //onAddedContacts: collisionWithShip,
+            //onProcessedContacts: collisionWithShip,
+            onRemovedContacts: collisionWithShip
         });
 
         var shipMesh = protolib.loadMesh({
@@ -141,15 +109,50 @@ Application.prototype =
             node: shipMesh.node,
             body: shipRigidBody,
             mesh: shipMesh,
-            velocityX: 0.5
+            velocityX: 0.2
         };
 
         this.physicsManager.addNode(ship.node, shipRigidBody);
 
+        // load materials
+        var materials = {
+            yellowColorMaterial: {
+                effect: "constant",
+                meta: {
+                    materialcolor: true
+                },
+                parameters: {
+                    materialColor: VMath.v4Build(242.0/255.0, 218.0/255.0, 82.0/255.0, 1.0)
+                }
+            }
+        };
+        for (var m in materials) {
+            if (materials.hasOwnProperty(m)) {
+                if (scene.loadMaterial(graphicsDevice, protolib.globals.textureManager, protolib.globals.effectManager, m, materials[m])) {
+                    materials[m].loaded = true;
+                    scene.getMaterial(m).reference.add();
+                } else {
+                    errorCallback("Failed to load material: " + m);
+                }
+            }
+        }
+
         window.console.log(this.ship);
+
+        // dummy preload
+        protolib.loadMesh({
+            mesh: "models/cube.dae",
+            v3Position: mathDevice.v3Build(0, -1000, 0),
+            v3Size: mathDevice.v3Build(1.0, 1.0, 1.0)
+        });
 
         // Add light
         protolib.setAmbientLightColor(mathDevice.v3Build(1, 1, 1));
+//         var pointLight = protolib.addPointLight({
+//             v3Position: mathDevice.v3Build(0, 10, 0),
+//             radius: 300,
+//             v3Color: mathDevice.v3Build(1, 1, 1)
+//         });
 
         // Controls
         var settings = {
@@ -204,25 +207,25 @@ Application.prototype =
         var randomX = Math.random()*(this.boundaryMax-(-this.boundaryMax)+1)+(-this.boundaryMax);
 
         var enemyShape = physicsDevice.createBoxShape({
-            halfExtents: mathDevice.v3Build(0.5, 0.5, 0.5),
-            margin: 0.001
+            halfExtents: mathDevice.v3Build(1.2, 0.7, 1.2),
+            margin: 0.01
         });
 
         var enemyBody = this.enemyBody = physicsDevice.createRigidBody({
             shape: enemyShape,
-            mass: 1.0,
-            inertia: mathDevice.v3ScalarMul(enemyShape.inertia, 1.0),
+            mass: 10.0,
+            inertia: mathDevice.v3ScalarMul(enemyShape.inertia, 10.0),
             transform: mathDevice.m43BuildTranslation(randomX, 0, spawnY),
             friction: 0.8,
             restitution: 0.2,
             angularDamping: 0.4,
             linearVelocity: mathDevice.v3Build(0, 0, 10),
             group: physicsDevice.FILTER_DEBRIS,
-            mask: physicsDevice.FILTER_CHARACTER
+            mask: ( physicsDevice.FILTER_PROJECTILE + physicsDevice.FILTER_CHARACTER )
         });
 
         var enemyMesh = protolib.loadMesh({
-            mesh: "models/cube.dae",
+            mesh: "models/spaceship.dae",
             v3Position: mathDevice.v3Build(randomX, 0, spawnY),
             v3Size: mathDevice.v3Build(1.0, 1.0, 1.0)
         });
@@ -239,6 +242,86 @@ Application.prototype =
 
     },
 
+    spawnBullet: function spawnBulletFn()
+    {
+        var protolib = this.protolib;
+        var mathDevice = protolib.getMathDevice();
+        var physicsDevice = this.physicsDevice;
+        var scene = protolib.globals.scene;
+        var enemiesList = this.enemiesList;
+        var bulletsList = this.bulletsList;
+        var physicsManager = this.physicsManager
+
+        // Collision Dection
+        function collisionWithBullet(objectA, objectB, pairContacts) {
+
+            window.console.log('collisionWithBullet');
+            // remove node & body from scene
+
+            if (pairContacts.length > 0) return;
+
+            $.each(enemiesList, function(i){
+                if((enemiesList[i].node.name === objectA.userData.name) ||
+                   (enemiesList[i].node.name === objectB.userData.name)) {
+                    enemiesList.splice(i,1); // remove enemy from list
+                    return false;
+                }
+            })
+            physicsManager.deleteNode(objectA.userData);
+            if (objectA.userData.scene === scene) scene.removeRootNode(objectA.userData);
+
+            $.each(bulletsList, function(i){
+                if((bulletsList[i].node.name === objectA.userData.name) ||
+                   (bulletsList[i].node.name === objectB.userData.name)) {
+                    bulletsList.splice(i,1); // remove bullet from list
+                    return false;
+                }
+            })
+            physicsManager.deleteNode(objectB.userData);
+            if (objectB.userData.scene === scene) scene.removeRootNode(objectB.userData);
+        }
+
+        // Create bullet
+        var spawnY = -2;
+        var spawnX = this.ship.mesh.v3Position[0];
+
+        var bulletShape = physicsDevice.createBoxShape({
+            halfExtents: mathDevice.v3Build(0.5, 0.5, 0.5),
+            margin: 0.06
+        });
+
+        var bulletBody = this.enemyBody = physicsDevice.createCollisionObject({
+            shape: bulletShape,
+            mass: 5.0,
+            inertia: mathDevice.v3ScalarMul(bulletShape.inertia, 5.0),
+            transform: mathDevice.m43BuildTranslation(spawnX, 0, spawnY),
+            kinematic: true,
+            trigger: true,
+            group: physicsDevice.FILTER_PROJECTILE,
+            mask: physicsDevice.FILTER_DEBRIS,
+            onRemovedContacts: collisionWithBullet
+        });
+
+        var bulletMesh = protolib.loadMesh({
+            mesh: "models/cube.dae",
+            v3Position: mathDevice.v3Build(spawnX, 0, spawnY),
+            v3Size: mathDevice.v3Build(0.1, 0.1, 1.0)
+        });
+
+        var bullet = {
+            node: bulletMesh.node,
+            body: bulletBody,
+            mesh: bulletMesh,
+        };
+
+        this.physicsManager.addNode(bullet.node, bulletBody);
+
+        var renderable = bullet.node.children[0].renderables[0];
+        renderable.setMaterial(scene.getMaterial('yellowColorMaterial'));
+
+        this.bulletsList.push(bullet);
+    },
+
     update: function updateFn()
     {
         var protolib = this.protolib;
@@ -252,9 +335,28 @@ Application.prototype =
             // Update code goes here
 
             this.spawnCount += 1;
-            if (this.spawnCount >= this.spawnTime) {
+            if (this.spawnCount >= this.spawnCooldown) {
                 this.spawnEnemy();
                 this.spawnCount = 0;
+            }
+
+            // Move bullets
+            for (var i = 0; i < this.bulletsList.length; i += 1)
+            {
+                var bullet = this.bulletsList[i];
+                var bulletPos = bullet.mesh.v3Position;
+                bulletPos[2] -= 0.5;
+                bullet.mesh.setPosition(bulletPos);
+            };
+
+            // Fire bullet
+            this.bulletFireCount += 1;
+            if (protolib.isKeyDown(protolib.keyCodes.SPACE))
+            {
+                if (this.bulletFireCount >= this.bulletFireCooldown) {
+                    this.spawnBullet();
+                    this.bulletFireCount = 0;
+                }
             }
 
             // Move player

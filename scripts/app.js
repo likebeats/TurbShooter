@@ -41,6 +41,7 @@ Application.prototype =
         this.spawnCooldown = 30;
         this.spawnCount = 0;
         this.boundaryMax = 20;
+        this.enemySpawnY = -100;
         var enemiesList = this.enemiesList = [];
 
         this.bulletFireCooldown = 10;
@@ -148,11 +149,6 @@ Application.prototype =
 
         // Add light
         protolib.setAmbientLightColor(mathDevice.v3Build(1, 1, 1));
-//         var pointLight = protolib.addPointLight({
-//             v3Position: mathDevice.v3Build(0, 10, 0),
-//             radius: 300,
-//             v3Color: mathDevice.v3Build(1, 1, 1)
-//         });
 
         // Controls
         var settings = {
@@ -180,7 +176,7 @@ Application.prototype =
 
         protolib.setPreRendererDraw(function renderDrawFn() {
 
-            floor.render(graphicsDevice, camera);
+            //floor.render(graphicsDevice, camera);
             if (settings.debug) {
                 scene.drawPhysicsNodes(graphicsDevice, protolib.globals.shaderManager, camera, physicsManager);
                 scene.drawPhysicsGeometry(graphicsDevice, protolib.globals.shaderManager, camera, physicsManager);
@@ -203,7 +199,6 @@ Application.prototype =
         var physicsDevice = this.physicsDevice;
 
         // Create enemy
-        var spawnY = -100;
         var randomX = Math.random()*(this.boundaryMax-(-this.boundaryMax)+1)+(-this.boundaryMax);
 
         var enemyShape = physicsDevice.createBoxShape({
@@ -215,7 +210,7 @@ Application.prototype =
             shape: enemyShape,
             mass: 10.0,
             inertia: mathDevice.v3ScalarMul(enemyShape.inertia, 10.0),
-            transform: mathDevice.m43BuildTranslation(randomX, 0, spawnY),
+            transform: mathDevice.m43BuildTranslation(randomX, 0, this.enemySpawnY),
             friction: 0.8,
             restitution: 0.2,
             angularDamping: 0.4,
@@ -226,7 +221,7 @@ Application.prototype =
 
         var enemyMesh = protolib.loadMesh({
             mesh: "models/spaceship.dae",
-            v3Position: mathDevice.v3Build(randomX, 0, spawnY),
+            v3Position: mathDevice.v3Build(randomX, 0, this.enemySpawnY),
             v3Size: mathDevice.v3Build(1.0, 1.0, 1.0)
         });
 
@@ -250,7 +245,7 @@ Application.prototype =
         var scene = protolib.globals.scene;
         var enemiesList = this.enemiesList;
         var bulletsList = this.bulletsList;
-        var physicsManager = this.physicsManager
+        var physicsManager = this.physicsManager;
 
         // Collision Dection
         function collisionWithBullet(objectA, objectB, pairContacts) {
@@ -329,24 +324,48 @@ Application.prototype =
         var graphicsDevice = protolib.getGraphicsDevice();
         var delta = protolib.time.app.delta;
         var camera = protolib.globals.camera;
+        var scene = protolib.globals.scene;
+        var enemiesList = this.enemiesList;
+        var bulletsList = this.bulletsList;
+        var physicsManager = this.physicsManager;
 
         if (protolib.beginFrame())
         {
             // Update code goes here
 
+            // Spawn enemies
             this.spawnCount += 1;
             if (this.spawnCount >= this.spawnCooldown) {
                 this.spawnEnemy();
                 this.spawnCount = 0;
             }
 
-            // Move bullets
-            for (var i = 0; i < this.bulletsList.length; i += 1)
+            // remove off screen enemies
+            for (var i = 0; i < enemiesList.length; i += 1)
             {
-                var bullet = this.bulletsList[i];
+                var enemy = enemiesList[i];
+                var enemyPos = enemy.node.getLocalTransform().slice(9,12);
+                if (enemyPos[2] > 15) {
+                    enemiesList.splice(i,1);
+                    physicsManager.deleteNode(enemy.node);
+                    scene.removeRootNode(enemy.node);
+                }
+            }
+
+            // Move bullets
+            for (var i = 0; i < bulletsList.length; i += 1)
+            {
+                var bullet = bulletsList[i];
                 var bulletPos = bullet.mesh.v3Position;
                 bulletPos[2] -= 0.5;
                 bullet.mesh.setPosition(bulletPos);
+
+                // remove off screen bullets
+                if (bulletPos[2] < this.enemySpawnY) {
+                    bulletsList.splice(i,1);
+                    physicsManager.deleteNode(bullet.node);
+                    scene.removeRootNode(bullet.node);
+                }
             };
 
             // Fire bullet

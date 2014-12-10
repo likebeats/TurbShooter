@@ -50,6 +50,7 @@
 /*{{ javascript("jslib/mouseforces.js") }}*/
 /*{{ javascript('jslib/scenedebugging.js') }}*/
 /*{{ javascript('jslib/physicsmanager.js') }}*/
+/*{{ javascript("jslib/particlesystem.js") }}*/
 
 /*{{ javascript('protolib/debugdraw.js') }}*/
 /*{{ javascript('protolib/duimanager.js') }}*/

@@ -1,0 +1,6 @@
+# Skybox
+skybox:
+    effect: skybox
+    meta:
+        noshadows: true
+    env_map: textures/skybox.dds

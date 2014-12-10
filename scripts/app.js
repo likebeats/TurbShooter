@@ -2,7 +2,10 @@
 /* global Protolib: false*/
 /* global Config: false*/
 /* global Floor: false*/
-/* global PhysicsManager: false */
+/* global PhysicsManager: false*/
+/* global ParticleBuilder: false*/
+/* global ParticleSystem: false*/
+/* global ParticleView: false*/
 
 function Application() {}
 Application.prototype =
@@ -51,7 +54,11 @@ Application.prototype =
         var floor = this.floor = Floor.create(graphicsDevice, mathDevice);
         var cameraController = this.cameraController = CameraController.create(graphicsDevice, inputDevice, camera);
 
-        // positio camera
+
+        // Setup particles
+        this.initParticles();
+
+        // Position camera
         protolib.moveCamera(mathDevice.v3Build(0, 12, -5));
         protolib.setCameraDirection(mathDevice.v3Build(0, -1, -1));
 
@@ -62,7 +69,10 @@ Application.prototype =
         var dynamicsWorldParameters = { gravity: [0, 0, 0] };
         var dynamicsWorld = this.dynamicsWorld = physicsDevice.createDynamicsWorld(dynamicsWorldParameters);
         var physicsManager = this.physicsManager = PhysicsManager.create(mathDevice, physicsDevice, dynamicsWorld);
+        var particleManager = this.particleManager;
 
+        var archetype1 = this.archetype1;
+        var particleNode = this.particleNode;
         // Collision Detection
         function collisionWithShip(objectA, objectB, pairContacts) {
 
@@ -71,6 +81,14 @@ Application.prototype =
             // remove node & body from scene
             $.each(enemiesList, function(i){
                 if(enemiesList[i].node.name === objectB.userData.name) {
+
+                    var timeout = 1.5;
+                    var s = 2;
+                    var pos = objectB.userData.getLocalTransform().slice(9,12);
+                    var instance = particleManager.createInstance(archetype1, timeout);
+                    instance.renderable.setLocalTransform(mathDevice.m43Build(s, 0, 0, 0, s, 0, 0, 0, s, pos[0], pos[1], pos[2]));
+                    particleManager.addInstanceToScene(instance, particleNode);
+
                     enemiesList.splice(i,1); // remove object from list
                     return false;
                 }
@@ -85,7 +103,6 @@ Application.prototype =
             margin: 0.001
         });
 
-        // createRigidBody
         var shipRigidBody = physicsDevice.createCollisionObject({
             shape: shipShape,
             mass: 10.0,
@@ -150,6 +167,14 @@ Application.prototype =
         // Add light
         protolib.setAmbientLightColor(mathDevice.v3Build(1, 1, 1));
 
+        protolib.setNearFarPlanes(0.01, 200);
+
+        //Skybox
+        this.skybox = protolib.loadMesh({
+            mesh: 'models/skybox.dae',
+            v3Size : mathDevice.v3Build(100, 100, 100),
+        });
+
         // Controls
         var settings = {
             debug: false
@@ -167,6 +192,7 @@ Application.prototype =
             }
         });
 
+        var particleManager = this.particleManager;
         protolib.setPreDraw(function drawFn() {
 
             dynamicsWorld.update();
@@ -176,6 +202,7 @@ Application.prototype =
 
         protolib.setPreRendererDraw(function renderDrawFn() {
 
+            particleManager.update(protolib.time.app.delta);
             //floor.render(graphicsDevice, camera);
             if (settings.debug) {
                 scene.drawPhysicsNodes(graphicsDevice, protolib.globals.shaderManager, camera, physicsManager);
@@ -185,6 +212,284 @@ Application.prototype =
         });
 
         return true;
+    },
+
+    initParticles: function initParticlesFn()
+    {
+        var protolib = this.protolib;
+        var mathDevice = protolib.getMathDevice();
+        var graphicsDevice = protolib.getGraphicsDevice();
+        var scene = protolib.globals.scene;
+
+        var particleManager = this.particleManager = ParticleManager.create(graphicsDevice, protolib.globals.textureManager, protolib.globals.shaderManager);
+
+        // All systems are added as children of this node so we can shuffle them around
+        // in space, demonstrating trails.
+        var particleNode = this.particleNode = SceneNode.create({
+            name: "particleNode",
+            dynamic: true
+        });
+        scene.addRootNode(particleNode);
+
+        particleManager.registerParticleAnimation({
+            name: "fire",
+            // Define a texture-size to normalize uv-coordinates with.
+            // This avoids needing to use fractional values, especially if texture
+            // may be changed in future.
+            //
+            // In this case the actual texture is 512x512, but we map the particle animation
+            // to the top-half, so can pretend it is really 512x256.
+            //
+            // To simplify the uv-coordinates further, we can 'pretend' it is really 4x2 as
+            // after normalization the resulting uv-coordinates would be equivalent.
+            "texture0-size": [4, 2],
+            texture0: [
+                [0, 0, 1, 1],
+                [1, 0, 1, 1],
+                [2, 0, 1, 1],
+                [3, 0, 1, 1],
+                [0, 1, 1, 1],
+                [1, 1, 1, 1],
+                [2, 1, 1, 1],
+                [3, 1, 1, 1]
+            ],
+            animation: [
+                {
+                    frame: 0
+                },
+                {
+                    // after 0.6 seconds, ensure colour is still [1,1,1,1]
+                    time: 0.6,
+                    color: [1, 1, 1, 1]
+                },
+                {
+                    // after another 0.1 seconds
+                    time: 0.1,
+                    // want to be 'just past' the last frame.
+                    // so all frames of animation have equal screen presence.
+                    frame: 8,
+                    color: [1, 1, 1, 0]
+                }
+            ]
+        });
+
+        particleManager.registerParticleAnimation({
+            name: "smoke",
+            // smoke is similarly mapped as "fire" particle above, but to bottom of packed texture.
+            "texture0-size": [4, 2],
+            texture0: [
+                [0, 0, 1, 1],
+                [1, 0, 1, 1],
+                [2, 0, 1, 1],
+                [3, 0, 1, 1],
+                [0, 1, 1, 1],
+                [1, 1, 1, 1],
+                [2, 1, 1, 1],
+                [3, 1, 1, 1]
+            ],
+            animation: [
+                {
+                    // these are values applied by default to the first snapshot in animation
+                    // we could omit them here if we wished.
+                    frame: 0,
+                    "frame-interpolation": "linear",
+                    color: [1, 1, 1, 1],
+                    "color-interpolation": "linear"
+                },
+                {
+                    // after 0.8 seconds
+                    time: 0.4,
+                    color: [1, 0.5, 0.5, 1]
+                },
+                {
+                    // after another 0.5 seconds, we fade out.
+                    time: 0.2,
+                    // want to be 'just past' the last frame.
+                    // so all frames of animation have equal screen presence.
+                    frame: 8,
+                    color: [0, 0, 0, 0]
+                }
+            ]
+        });
+
+        var description1 = {
+            system: {
+                // define local system extents, particles will be clamped against these extents when reached.
+                //
+                // We make extents a little larger than necessary so that in movement of system
+                // particles will not push up against the edges of extents so easily.
+                center: [0, 0, 0],
+                halfExtents: [0.3, 3, 0.3]
+            },
+            updater: {
+                // set noise texture to use for randomization, and allow acceleration (when enabled)
+                // to be randomized to up to the given amounts.
+                noiseTexture: "textures/noise.dds",
+                randomizedAcceleration: [2, 2, 2]
+            },
+            renderer: {
+                // use default renderer with additive blend mode
+                name: "additive",
+                // set noise texture to use for randomizations.
+                noiseTexture: "textures/noise.dds",
+                // for particles that enable these options, we're going to allow particle alphas
+                // if enabled on particles, allow particle orientation to be randomized up to these
+                // spherical amounts (+/-), in this case, to rotate around y-axis by +/- 0.3*Math.PI
+                // specify this variation should change over time
+                randomizedOrientation: [0, 0.2 * Math.PI],
+                animatedOrientation: true,
+                // if enabled on particles, allow particle scale to be randomized up to these
+                // amounts (+/-), and define that this variation should not change over time.
+                randomizedScale: [0.5, 0.5],
+                animatedScale: false
+            },
+            // All particles make use of this single texture.
+            packedTexture: "textures/flamesmokesequence.png",
+            particles: {
+                fire: {
+                    animation: "fire",
+                    // select sub-set of packed texture this particles animation should be mapped to.
+                    "texture-uv": [0, 0, 1, 0.5],
+                    // apply animation tweaks to increase size of animation (x5)
+                    tweaks: {
+                        "scale-scale": [0.8, 0.8]
+                    }
+                },
+                ember: {
+                    animation: "fire",
+                    "texture-uv": [0, 0.0, 1, 0.5],
+                    // apply animation tweaks so that only the second half of flip-book is used.
+                    // and double the size.
+                    tweaks: {
+                        "scale-scale": [0.5, 0.5],
+                        // The animation we're using has 8 frames, we want to use the second
+                        // half of the flip-book animation, so we scale by 0.5 and offset by 4.
+                        "frame-scale": 0.5,
+                        "frame-offset": 4
+                    }
+                },
+                smoke: {
+                    animation: "smoke",
+                    // select sub-set of packed texture this particles animation should be mapped to.
+                    "texture-uv": [0, 0.5, 1, 0.5],
+                    // apply animation tweaks to increase size of animation (x3)
+                    tweaks: {
+                        "scale-scale": [0.5, 0.5]
+                    }
+                }
+            },
+            emitters: [
+                {
+                    particle: {
+                        name: "fire",
+                        // let life time of particle vary between 0.6 and 1.2 of animation life time.
+                        lifeTimeScaleMin: 0.6,
+                        lifeTimeScaleMax: 1.2,
+                        // set userData so that its orientation will be randomized, and will have a
+                        // also define scale should be randomized.
+                        renderUserData: {
+                            facing: "billboard",
+                            randomizeOrientation: true,
+                            randomizeScale: true
+                        }
+                    },
+                    emittance: {
+                        // emit particles 10 times per second. With 0 - 2 particles emitted each time.
+                        rate: 10,
+                        burstMin: 0,
+                        burstMax: 2
+                    },
+                    position: {
+                        // position 2 units above system position
+                        position: [0, 0, 0],
+                        // and with a randomized radius in disc of up to 1 unit
+                        // with a normal (gaussian) distribution to focus on centre.
+                        radiusMax: 2,
+                        radiusDistribution: "normal"
+                    },
+                    velocity: {
+                        // spherical angles defining direction to emit particles in.
+                        // the default 0, 0 means to emit particles straight up the y-axis.
+                        theta: 0,
+                        phi: 0
+                    }
+                },
+                {
+                    particle: {
+                        name: "ember",
+                        // override animation life times.
+                        lifeTimeMin: 0.2,
+                        lifeTimeMax: 0.6,
+                        // set userData so that acceleration will be randomized and also orientation.
+                        updateUserData: {
+                            randomizeAcceleration: true
+                        },
+                        renderUserData: {
+                            randomizeOrientation: true
+                        }
+                    },
+                    emittance: {
+                        // emit particles 3 times per second. With 0 - 15 particles emitted each time.
+                        rate: 3,
+                        burstMin: 0,
+                        burstMax: 15,
+                        // only start emitting after 0.25 seconds
+                        delay: 0.25
+                    },
+                    velocity: {
+                        // set velocity to a random direction in conical spread
+                        conicalSpread: Math.PI * 0.25,
+                        // and with speeds between these values.
+                        speedMin: 1,
+                        speedMax: 3
+                    },
+                    position: {
+                        // position 3 units above system position
+                        position: [0, 1, 0],
+                        // and in a random radius of this position in a sphere.
+                        spherical: true,
+                        radiusMin: 1,
+                        radiusMax: 2.5
+                    }
+                },
+                {
+                    particle: {
+                        name: "smoke",
+                        // set userData so that acceleration will be randomized.
+                        updateUserData: {
+                            randomizeAcceleration: true
+                        }
+                    },
+                    emittance: {
+                        // emit particles 20 times per second, with 0 - 3 every time.
+                        rate: 20,
+                        burstMin: 0,
+                        burstMax: 3
+                    },
+                    velocity: {
+                        // set velocity to a random direction in conical spread
+                        conicalSpread: Math.PI * 0.25,
+                        // and with speeds between these values.
+                        speedMin: 2,
+                        speedMax: 6
+                    },
+                    position: {
+                        // position 2.5 units above system position
+                        position: [0, 1.5, 0],
+                        // and in a random radius of this position in a sphere.
+                        spherical: true,
+                        radiusMin: 0.5,
+                        radiusMax: 1.0
+                    }
+                }
+            ]
+        };
+
+        this.archetype1 = particleManager.parseArchetype(description1);
+
+        particleManager.initialize(scene, protolib.globals.renderer.passIndex.transparent);
+        particleManager.loadArchetype(this.archetype1);
+
     },
 
     reset: function resetFn()
@@ -246,6 +551,9 @@ Application.prototype =
         var enemiesList = this.enemiesList;
         var bulletsList = this.bulletsList;
         var physicsManager = this.physicsManager;
+        var particleManager = this.particleManager;
+        var archetype1 = this.archetype1;
+        var particleNode = this.particleNode;
 
         // Collision Dection
         function collisionWithBullet(objectA, objectB, pairContacts) {
@@ -256,14 +564,28 @@ Application.prototype =
             if (pairContacts.length > 0) return;
 
             $.each(enemiesList, function(i){
-                if((enemiesList[i].node.name === objectA.userData.name) ||
-                   (enemiesList[i].node.name === objectB.userData.name)) {
+                var found = false;
+                var obj;
+                if(enemiesList[i].node.name === objectA.userData.name) {
+                    found = true;
+                    obj = objectA;
+                } else if (enemiesList[i].node.name === objectB.userData.name) {
+                    found = true;
+                    obj = objectB;
+                }
+
+                if (found) {
+                    var timeout = 1.5;
+                    var s = 2;
+                    var pos = obj.userData.getLocalTransform().slice(9,12);
+                    var instance = particleManager.createInstance(archetype1, timeout);
+                    instance.renderable.setLocalTransform(mathDevice.m43Build(s, 0, 0, 0, s, 0, 0, 0, s, pos[0], pos[1], pos[2]));
+                    particleManager.addInstanceToScene(instance, particleNode);
+
                     enemiesList.splice(i,1); // remove enemy from list
                     return false;
                 }
-            })
-            physicsManager.deleteNode(objectA.userData);
-            if (objectA.userData.scene === scene) scene.removeRootNode(objectA.userData);
+            });
 
             $.each(bulletsList, function(i){
                 if((bulletsList[i].node.name === objectA.userData.name) ||
@@ -271,7 +593,11 @@ Application.prototype =
                     bulletsList.splice(i,1); // remove bullet from list
                     return false;
                 }
-            })
+            });
+
+            physicsManager.deleteNode(objectA.userData);
+            if (objectA.userData.scene === scene) scene.removeRootNode(objectA.userData);
+
             physicsManager.deleteNode(objectB.userData);
             if (objectB.userData.scene === scene) scene.removeRootNode(objectB.userData);
         }
@@ -329,9 +655,12 @@ Application.prototype =
         var bulletsList = this.bulletsList;
         var physicsManager = this.physicsManager;
 
+
         if (protolib.beginFrame())
         {
             // Update code goes here
+
+            //this.cameraController.update();
 
             // Spawn enemies
             this.spawnCount += 1;
@@ -366,7 +695,7 @@ Application.prototype =
                     physicsManager.deleteNode(bullet.node);
                     scene.removeRootNode(bullet.node);
                 }
-            };
+            }
 
             // Fire bullet
             this.bulletFireCount += 1;
@@ -379,20 +708,16 @@ Application.prototype =
             }
 
             // Move player
-            var keyDown = false;
-
             var shipVelocity = this.ship.velocityX;
             var shipPosition = this.ship.mesh.v3Position;
             var posDelta = shipPosition[0];
             if (protolib.isKeyDown(protolib.keyCodes.LEFT))
             {
                 shipPosition[0] -= shipVelocity;
-                keyDown = true;
             }
             if (protolib.isKeyDown(protolib.keyCodes.RIGHT))
             {
                 shipPosition[0] += shipVelocity;
-                keyDown = true;
             }
 
             shipPosition[0] = protolib.utils.clamp(shipPosition[0], -this.boundaryMax-5, this.boundaryMax+5);
@@ -400,7 +725,6 @@ Application.prototype =
             posDelta = this.ship.mesh.v3Position[0] - posDelta;
 
             if (posDelta != 0) protolib.moveCamera(mathDevice.v3Build(posDelta, 0, 0));
-            //this.cameraController.update();
 
             protolib.endFrame();
         }

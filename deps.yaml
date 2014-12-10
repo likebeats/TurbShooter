@@ -17,6 +17,11 @@
 - shaders/forwardrenderingshadows.cgfx
 - shaders/simplesprite.cgfx
 - shaders/generic2D.cgfx
+- shaders/particles-copy.cgfx
+- shaders/particles-default-render.cgfx
+- shaders/particles-default-update.cgfx
+- shaders/particles-packer.cgfx
+- shaders/particles-sort.cgfx
 - textures/default_light.png
 - textures/opensans-8_0.png
 - textures/opensans-16_0.png
@@ -33,6 +38,13 @@
 - models/cube.dae
 - models/spaceship.dae
 - textures/ship.png
-- textures/nightsky_gradient.png
+- textures/space.jpg
 - textures/DIFFUSE.png
 - textures/SPECULAR.png
+- textures/noise.dds
+- textures/flamesmokesequence.png
+- materials/skybox.material
+- textures/skybox.dds
+- path: models/skybox.dae
+  args: ['-d', '_build/assets/materials/skybox.material.json']
+  deps: ['materials/skybox.material']

@@ -46,7 +46,7 @@ Application.prototype =
         this.gameMaxTime = 30.0;
         this.gameTimeLeft = this.gameMaxTime;
         var gameScore = this.gameScore = 0;
-        this.scoreScreenPauseTime = 4.0;
+        this.scoreScreenPauseTime = 2.5;
 
         this.spawnCooldown = 20;
         this.spawnCount = 0;
@@ -84,26 +84,26 @@ Application.prototype =
 
             // remove node & body from scene
             for (var i = 0; i < this.enemiesList.length; i += 1) {
-                if(this.enemiesList[i].node.name === objectB.userData.name) {
+                if(this.enemiesList[i].node.name == objectB.userData.name) {
 
                     var timeout = 1.5;
                     var s = 2;
-                    var pos = objectB.userData.getLocalTransform().slice(9,12);
+                    var pos = this.enemiesList[i].node.getLocalTransform().slice(9,12);
                     var instance = this.particleManager.createInstance(this.archetype1, timeout);
                     instance.renderable.setLocalTransform(mathDevice.m43Build(s, 0, 0, 0, s, 0, 0, 0, s, pos[0], pos[1], pos[2]));
                     this.particleManager.addInstanceToScene(instance, this.particleNode);
-
-                    this.enemiesList.splice(i,1); // remove object from list
 
                     var sound = protolib.playSound({
                         sound : "sounds/explosion1.mp3",
                         background : true,
                         volume : 0.4
                     });
+
+                    this.physicsManager.deleteNode(this.enemiesList[i].node);
+                    if (this.enemiesList[i].node.scene) this.protolib.globals.scene.removeRootNode(this.enemiesList[i].node);
+                    this.enemiesList.splice(i,1); // remove object from list
                 }
             }
-            this.physicsManager.deleteNode(objectB.userData);
-            this.protolib.globals.scene.removeRootNode(objectB.userData);
 
             if (this.gameScore > 0) this.gameScore -= 1;
         }, this);
@@ -510,13 +510,13 @@ Application.prototype =
 
         for (var i = 0; i < this.bulletsList.length; i += 1) {
             this.physicsManager.deleteNode(this.bulletsList[i].node);
-            this.protolib.globals.scene.removeRootNode(this.bulletsList[i].node);
+            if (this.bulletsList[i].node.scene) this.protolib.globals.scene.removeRootNode(this.bulletsList[i].node);
         }
         this.bulletsList = [];
 
         for (var i = 0; i < this.enemiesList.length; i += 1) {
             this.physicsManager.deleteNode(this.enemiesList[i].node);
-            this.protolib.globals.scene.removeRootNode(this.enemiesList[i].node);
+            if (this.enemiesList[i].node.scene) this.protolib.globals.scene.removeRootNode(this.enemiesList[i].node);
         }
         this.enemiesList = [];
 
@@ -589,46 +589,53 @@ Application.prototype =
             if (pairContacts.length > 0) return;
 
             for (var i = 0; i < this.enemiesList.length; i += 1) {
-                var found = false;
                 var obj;
-                if(this.enemiesList[i].node.name === objectA.userData.name) {
-                    found = true;
-                    obj = objectA;
-                } else if (this.enemiesList[i].node.name === objectB.userData.name) {
-                    found = true;
-                    obj = objectB;
+                var foundEnemy = false;
+                if(this.enemiesList[i].node.name == objectA.userData.name) {
+                    foundEnemy = true;
+                    obj = this.enemiesList[i];
+                } else if (this.enemiesList[i].node.name == objectB.userData.name) {
+                    foundEnemy = true;
+                    obj = this.enemiesList[i];
                 }
 
-                if (found) {
+                if (foundEnemy) {
                     var timeout = 1.5;
                     var s = 2;
-                    var pos = obj.userData.getLocalTransform().slice(9,12);
+                    var pos = obj.node.getLocalTransform().slice(9,12);
                     var instance = this.particleManager.createInstance(this.archetype1, timeout);
                     instance.renderable.setLocalTransform(mathDevice.m43Build(s, 0, 0, 0, s, 0, 0, 0, s, pos[0], pos[1], pos[2]));
                     this.particleManager.addInstanceToScene(instance, this.particleNode);
-
-                    this.enemiesList.splice(i,1); // remove enemy from list
 
                     var sound = protolib.playSound({
                         sound : "sounds/explosion1.mp3",
                         background : true,
                         volume : 0.4
                     });
+
+                    this.physicsManager.deleteNode(obj.node);
+                    if (obj.node.scene) this.protolib.globals.scene.removeRootNode(obj.node);
+                    this.enemiesList.splice(i,1); // remove enemy from list
                 }
             }
 
             for (var i = 0; i < this.bulletsList.length; i += 1) {
-                if((this.bulletsList[i].node.name === objectA.userData.name) ||
-                   (this.bulletsList[i].node.name === objectB.userData.name)) {
+                var obj;
+                var foundBullet = false;
+                if(this.bulletsList[i].node.name == objectA.userData.name) {
+                    foundBullet = true;
+                    obj = this.bulletsList[i];
+                } else if (this.bulletsList[i].node.name == objectB.userData.name) {
+                    foundBullet = true;
+                    obj = this.bulletsList[i];
+                }
+
+                if (foundBullet) {
+                    this.physicsManager.deleteNode(obj.node);
+                    if (obj.node.scene) this.protolib.globals.scene.removeRootNode(obj.node);
                     this.bulletsList.splice(i,1); // remove bullet from list
                 }
             }
-
-            this.physicsManager.deleteNode(objectA.userData);
-            this.protolib.globals.scene.removeRootNode(objectA.userData);
-
-            this.physicsManager.deleteNode(objectB.userData);
-            this.protolib.globals.scene.removeRootNode(objectB.userData);
 
             this.gameScore = this.gameScore + 1;
         }, this);
@@ -712,9 +719,9 @@ Application.prototype =
                     var enemy = this.enemiesList[i];
                     var enemyPos = enemy.node.getLocalTransform().slice(9,12);
                     if (enemyPos[2] > 15) {
-                        this.enemiesList.splice(i,1);
                         physicsManager.deleteNode(enemy.node);
-                        scene.removeRootNode(enemy.node);
+                        if (enemy.node.scene) scene.removeRootNode(enemy.node);
+                        this.enemiesList.splice(i,1);
                     }
                 }
 
@@ -727,10 +734,10 @@ Application.prototype =
                     bullet.mesh.setPosition(bulletPos);
 
                     // remove off screen bullets
-                    if (bulletPos[2] < this.enemySpawnY) {
-                        this.bulletsList.splice(i,1);
+                    if (bulletPos[2] < this.enemySpawnY-100) {
                         physicsManager.deleteNode(bullet.node);
-                        scene.removeRootNode(bullet.node);
+                        if (bullet.node.scene) scene.removeRootNode(bullet.node);
+                        this.bulletsList.splice(i,1);
                     }
                 }
 
@@ -844,7 +851,7 @@ Application.prototype =
                     if (this.scoreScreenPauseTime < 0) {
                         if (protolib.isKeyDown(protolib.keyCodes.SPACE))
                         {
-                            this.scoreScreenPauseTime = 4.0;
+                            this.scoreScreenPauseTime = 2.5;
                             this.gameTimeLeft = this.gameMaxTime;
                             this.gameScore = 0;
                             this.gameEnded = false;

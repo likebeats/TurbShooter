@@ -48,7 +48,7 @@ Application.prototype =
         var gameScore = this.gameScore = 0;
         this.scoreScreenPauseTime = 2.5;
 
-        this.spawnCooldown = 20;
+        this.spawnCooldown = 10;
         this.spawnCount = 0;
         this.boundaryMax = 20;
         this.enemySpawnY = -100;
@@ -748,6 +748,52 @@ Application.prototype =
                     if (this.bulletFireCount >= this.bulletFireCooldown) {
                         this.spawnBullet();
                         this.bulletFireCount = 0;
+                    }
+                }
+
+                // Ray beam test
+                if (protolib.isKeyJustDown(protolib.keyCodes.COMMA))
+                {
+                    for(;;)
+                    {
+                        var hitScanStart = this.ship.mesh.v3Position;
+                        var hitScanEndPoint = mathDevice.v3Build(hitScanStart[0], hitScanStart[1], this.enemySpawnY);
+                        var rayHit = this.dynamicsWorld.rayTest({
+                            from: hitScanStart,
+                            to: hitScanEndPoint,
+                            group: this.physicsDevice.FILTER_PROJECTILE,
+                            exclude: this.ship.body
+                        });
+                        if (rayHit && rayHit.body)
+                        {
+                            var node = rayHit.body.userData;
+                            for (var i = 0; i < this.enemiesList.length; i += 1)
+                            {
+                                if (this.enemiesList[i].node.name == node.name) {
+
+                                    var timeout = 1.5;
+                                    var s = 2;
+                                    var pos = node.getLocalTransform().slice(9,12);
+                                    var instance = this.particleManager.createInstance(this.archetype1, timeout);
+                                    instance.renderable.setLocalTransform(mathDevice.m43Build(s, 0, 0, 0, s, 0, 0, 0, s, pos[0], pos[1], pos[2]));
+                                    this.particleManager.addInstanceToScene(instance, this.particleNode);
+
+                                    var sound = protolib.playSound({
+                                        sound : "sounds/explosion1.mp3",
+                                        background : true,
+                                        volume : 0.4
+                                    });
+
+                                    physicsManager.deleteNode(this.enemiesList[i].node);
+                                    if (this.enemiesList[i].node.scene) scene.removeRootNode(this.enemiesList[i].node);
+                                    this.enemiesList.splice(i,1);
+
+                                    this.gameScore = this.gameScore + 1;
+                                }
+                            }
+                        } else {
+                            break;
+                        }
                     }
                 }
 

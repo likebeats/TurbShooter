@@ -58,6 +58,9 @@ Application.prototype =
         this.bulletFireCount = 0;
         this.bulletsList = [];
 
+        this.laserBeamPostions = [];
+        this.laserBeamTimeFade = 0.5;
+
         var floor = this.floor = Floor.create(graphicsDevice, mathDevice);
         var cameraController = this.cameraController = CameraController.create(graphicsDevice, inputDevice, camera);
 
@@ -174,6 +177,9 @@ Application.prototype =
             v3Position: mathDevice.v3Build(0, -1000, 0),
             v3Size: mathDevice.v3Build(1.0, 1.0, 1.0)
         });
+
+        // dummy preload
+        protolib.globals.textureManager.load("textures/beam.png");
 
         // Add light
         protolib.setAmbientLightColor(mathDevice.v3Build(1, 1, 1));
@@ -526,6 +532,8 @@ Application.prototype =
         protolib.setCameraPosition(mathDevice.v3Build(0, camPos[1], camPos[2]));
 
         this.particleManager.clear();
+
+        this.laserBeamPostions = [];
     },
 
     spawnEnemy: function spawnEnemyFn()
@@ -698,8 +706,8 @@ Application.prototype =
             // Update code goes here
 
             //             this.cameraController.left = 0;
-            //             this.cameraController.right = 0;
-            //             this.cameraController.update();
+            //                         this.cameraController.right = 0;
+            //                         this.cameraController.update();
             this.particleManager.update(protolib.time.app.delta);
 
             if (this.gameStarted) {
@@ -752,12 +760,18 @@ Application.prototype =
                 }
 
                 // Ray beam test
-                if (protolib.isKeyJustDown(protolib.keyCodes.COMMA))
+                if (protolib.isKeyJustDown(protolib.keyCodes.Z))
                 {
+                    var hitScanStart = this.ship.mesh.v3Position;
+                    var hitScanEndPoint = mathDevice.v3Build(hitScanStart[0], hitScanStart[1], this.enemySpawnY);
+
+                    var beam = {
+                        x: hitScanStart[0],
+                        timeLeft: this.laserBeamTimeFade
+                    }
+                    this.laserBeamPostions.push(beam);
                     for(;;)
                     {
-                        var hitScanStart = this.ship.mesh.v3Position;
-                        var hitScanEndPoint = mathDevice.v3Build(hitScanStart[0], hitScanStart[1], this.enemySpawnY);
                         var rayHit = this.dynamicsWorld.rayTest({
                             from: hitScanStart,
                             to: hitScanEndPoint,
@@ -826,6 +840,26 @@ Application.prototype =
                     blendStyle: protolib.blendStyle.ADDITIVE
                 });
 
+                // Draw laser beams
+                for (var i = 0; i < this.laserBeamPostions.length; i += 1)
+                {
+                    var x = this.laserBeamPostions[i].x;
+                    var timeLeft = this.laserBeamPostions[i].timeLeft;
+
+                    this.laserBeamPostions[i].timeLeft = this.laserBeamPostions[i].timeLeft - delta;
+                    if (this.laserBeamPostions[i].timeLeft > 0) {
+                        protolib.draw3DSprite({
+                            texture: "textures/beam.png",
+                            v3Position: mathDevice.v3Build(x,0,-20),
+                            size: 20,
+                            alpha: 1.0*(this.laserBeamPostions[i].timeLeft/this.laserBeamTimeFade),
+                            blendStyle: protolib.blendStyle.ADDITIVE
+                        });
+                    } else {
+                        this.laserBeamPostions.splice(i,1); // remove beam
+                    }
+                }
+
                 // GUI
                 protolib.drawText({
                     text: "Time: " + this.gameTimeLeft.toFixed(2),
@@ -834,6 +868,7 @@ Application.prototype =
                     scale: 3,
                     horizontalAlign: protolib.textHorizontalAlign.LEFT
                 });
+
                 protolib.drawText({
                     text: "Score: " + this.gameScore,
                     position: [30, 100],

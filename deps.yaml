@@ -43,6 +43,7 @@
 - textures/SPECULAR.png
 - textures/noise.dds
 - textures/flamesmokesequence.png
+- textures/beam.png
 - materials/skybox.material
 - textures/skybox.dds
 - path: models/skybox.dae

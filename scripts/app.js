@@ -41,15 +41,22 @@ Application.prototype =
 
         // Initialization code goes here
 
+        this.gameStarted = false;
+        this.gameEnded = false;
+        this.gameMaxTime = 15.0;
+        this.gameTimeLeft = this.gameMaxTime;
+        var gameScore = this.gameScore = 0;
+        this.scoreScreenPauseTime = 4.0;
+
         this.spawnCooldown = 30;
         this.spawnCount = 0;
         this.boundaryMax = 20;
         this.enemySpawnY = -100;
-        var enemiesList = this.enemiesList = [];
+        this.enemiesList = [];
 
         this.bulletFireCooldown = 10;
         this.bulletFireCount = 0;
-        var bulletsList = this.bulletsList = [];
+        this.bulletsList = [];
 
         var floor = this.floor = Floor.create(graphicsDevice, mathDevice);
         var cameraController = this.cameraController = CameraController.create(graphicsDevice, inputDevice, camera);
@@ -70,31 +77,30 @@ Application.prototype =
         var physicsManager = this.physicsManager = PhysicsManager.create(mathDevice, physicsDevice, dynamicsWorld);
         var particleManager = this.particleManager;
 
-        var archetype1 = this.archetype1;
-        var particleNode = this.particleNode;
         // Collision Detection
-        function collisionWithShip(objectA, objectB, pairContacts) {
+        var collisionWithShipFn = $.proxy(function collisionWithShip(objectA, objectB, pairContacts) {
 
             window.console.log('collisionMade');
 
             // remove node & body from scene
-            $.each(enemiesList, function(i){
-                if(enemiesList[i].node.name === objectB.userData.name) {
+            for (var i = 0; i < this.enemiesList.length; i += 1) {
+                if(this.enemiesList[i].node.name === objectB.userData.name) {
 
                     var timeout = 1.5;
                     var s = 2;
                     var pos = objectB.userData.getLocalTransform().slice(9,12);
-                    var instance = particleManager.createInstance(archetype1, timeout);
+                    var instance = this.particleManager.createInstance(this.archetype1, timeout);
                     instance.renderable.setLocalTransform(mathDevice.m43Build(s, 0, 0, 0, s, 0, 0, 0, s, pos[0], pos[1], pos[2]));
-                    particleManager.addInstanceToScene(instance, particleNode);
+                    this.particleManager.addInstanceToScene(instance, this.particleNode);
 
-                    enemiesList.splice(i,1); // remove object from list
-                    return false;
+                    this.enemiesList.splice(i,1); // remove object from list
                 }
-            })
-            physicsManager.deleteNode(objectB.userData);
-            if (objectB.userData.scene === scene) scene.removeRootNode(objectB.userData);
-        }
+            }
+            this.physicsManager.deleteNode(objectB.userData);
+            this.protolib.globals.scene.removeRootNode(objectB.userData);
+
+            if (this.gameScore > 0) this.gameScore -= 1;
+        }, this);
 
         // Add ship
         var shipShape = physicsDevice.createBoxShape({
@@ -111,9 +117,9 @@ Application.prototype =
             trigger: true,
             group: physicsDevice.FILTER_CHARACTER,
             mask: physicsDevice.FILTER_DEBRIS,
-            //onAddedContacts: collisionWithShip,
-            //onProcessedContacts: collisionWithShip,
-            onRemovedContacts: collisionWithShip
+            //onAddedContacts: collisionWithShipFn,
+            //onProcessedContacts: collisionWithShipFn,
+            onRemovedContacts: collisionWithShipFn
         });
 
         var shipMesh = protolib.loadMesh({
@@ -169,12 +175,12 @@ Application.prototype =
         protolib.setNearFarPlanes(0.01, 300);
 
         //Skybox
-//         this.skybox = protolib.loadMesh({
-//             mesh: 'models/skybox.dae',
-//             v3Size : mathDevice.v3Build(100, 100, 100),
-//         });
+        //         this.skybox = protolib.loadMesh({
+        //             mesh: 'models/skybox.dae',
+        //             v3Size : mathDevice.v3Build(100, 100, 100),
+        //         });
 
-//         window.console.log(this.skybox);
+        //         window.console.log(this.skybox);
 
         // Controls
         var settings = {
@@ -489,12 +495,31 @@ Application.prototype =
 
         particleManager.initialize(scene, protolib.globals.renderer.passIndex.transparent);
         particleManager.loadArchetype(this.archetype1);
-
     },
 
     reset: function resetFn()
     {
+        var protolib = this.protolib;
+        var mathDevice = protolib.getMathDevice();
 
+        for (var i = 0; i < this.bulletsList.length; i += 1) {
+            this.physicsManager.deleteNode(this.bulletsList[i].node);
+            this.protolib.globals.scene.removeRootNode(this.bulletsList[i].node);
+        }
+        this.bulletsList = [];
+
+        for (var i = 0; i < this.enemiesList.length; i += 1) {
+            this.physicsManager.deleteNode(this.enemiesList[i].node);
+            this.protolib.globals.scene.removeRootNode(this.enemiesList[i].node);
+        }
+        this.enemiesList = [];
+
+        this.ship.mesh.setPosition(mathDevice.v3Build(0, 0, 0));
+
+        var camPos = protolib.globals.camera.matrix.slice(9,12);
+        protolib.setCameraPosition(mathDevice.v3Build(0, camPos[1], camPos[2]));
+
+        this.particleManager.clear();
     },
 
     spawnEnemy: function spawnEnemyFn()
@@ -548,28 +573,22 @@ Application.prototype =
         var mathDevice = protolib.getMathDevice();
         var physicsDevice = this.physicsDevice;
         var scene = protolib.globals.scene;
-        var enemiesList = this.enemiesList;
-        var bulletsList = this.bulletsList;
-        var physicsManager = this.physicsManager;
-        var particleManager = this.particleManager;
-        var archetype1 = this.archetype1;
-        var particleNode = this.particleNode;
 
         // Collision Dection
-        function collisionWithBullet(objectA, objectB, pairContacts) {
+        var collisionWithBulletFn = $.proxy(function collisionWithBullet(objectA, objectB, pairContacts) {
 
             window.console.log('collisionWithBullet');
             // remove node & body from scene
 
             if (pairContacts.length > 0) return;
 
-            $.each(enemiesList, function(i){
+            for (var i = 0; i < this.enemiesList.length; i += 1) {
                 var found = false;
                 var obj;
-                if(enemiesList[i].node.name === objectA.userData.name) {
+                if(this.enemiesList[i].node.name === objectA.userData.name) {
                     found = true;
                     obj = objectA;
-                } else if (enemiesList[i].node.name === objectB.userData.name) {
+                } else if (this.enemiesList[i].node.name === objectB.userData.name) {
                     found = true;
                     obj = objectB;
                 }
@@ -578,29 +597,29 @@ Application.prototype =
                     var timeout = 1.5;
                     var s = 2;
                     var pos = obj.userData.getLocalTransform().slice(9,12);
-                    var instance = particleManager.createInstance(archetype1, timeout);
+                    var instance = this.particleManager.createInstance(this.archetype1, timeout);
                     instance.renderable.setLocalTransform(mathDevice.m43Build(s, 0, 0, 0, s, 0, 0, 0, s, pos[0], pos[1], pos[2]));
-                    particleManager.addInstanceToScene(instance, particleNode);
+                    this.particleManager.addInstanceToScene(instance, this.particleNode);
 
-                    enemiesList.splice(i,1); // remove enemy from list
-                    return false;
+                    this.enemiesList.splice(i,1); // remove enemy from list
                 }
-            });
+            }
 
-            $.each(bulletsList, function(i){
-                if((bulletsList[i].node.name === objectA.userData.name) ||
-                   (bulletsList[i].node.name === objectB.userData.name)) {
-                    bulletsList.splice(i,1); // remove bullet from list
-                    return false;
+            for (var i = 0; i < this.bulletsList.length; i += 1) {
+                if((this.bulletsList[i].node.name === objectA.userData.name) ||
+                   (this.bulletsList[i].node.name === objectB.userData.name)) {
+                    this.bulletsList.splice(i,1); // remove bullet from list
                 }
-            });
+            }
 
-            physicsManager.deleteNode(objectA.userData);
-            if (objectA.userData.scene === scene) scene.removeRootNode(objectA.userData);
+            this.physicsManager.deleteNode(objectA.userData);
+            this.protolib.globals.scene.removeRootNode(objectA.userData);
 
-            physicsManager.deleteNode(objectB.userData);
-            if (objectB.userData.scene === scene) scene.removeRootNode(objectB.userData);
-        }
+            this.physicsManager.deleteNode(objectB.userData);
+            this.protolib.globals.scene.removeRootNode(objectB.userData);
+
+            this.gameScore = this.gameScore + 1;
+        }, this);
 
         // Create bullet
         var spawnY = -2;
@@ -620,7 +639,7 @@ Application.prototype =
             trigger: true,
             group: physicsDevice.FILTER_PROJECTILE,
             mask: physicsDevice.FILTER_DEBRIS,
-            onRemovedContacts: collisionWithBullet
+            onRemovedContacts: collisionWithBulletFn
         });
 
         var bulletMesh = protolib.loadMesh({
@@ -651,94 +670,178 @@ Application.prototype =
         var delta = protolib.time.app.delta;
         var camera = protolib.globals.camera;
         var scene = protolib.globals.scene;
-        var enemiesList = this.enemiesList;
-        var bulletsList = this.bulletsList;
         var physicsManager = this.physicsManager;
 
+        //window.console.log(protolib.time.app.current);
 
         if (protolib.beginFrame())
         {
             // Update code goes here
 
-//             this.cameraController.left = 0;
-//             this.cameraController.right = 0;
-//             this.cameraController.update();
-
-            // Spawn enemies
-            this.spawnCount += 1;
-            if (this.spawnCount >= this.spawnCooldown) {
-                this.spawnEnemy();
-                this.spawnCount = 0;
-            }
-
-            // remove off screen enemies
-            for (var i = 0; i < enemiesList.length; i += 1)
-            {
-                var enemy = enemiesList[i];
-                var enemyPos = enemy.node.getLocalTransform().slice(9,12);
-                if (enemyPos[2] > 15) {
-                    enemiesList.splice(i,1);
-                    physicsManager.deleteNode(enemy.node);
-                    scene.removeRootNode(enemy.node);
-                }
-            }
-
-            // Move bullets
-            for (var i = 0; i < bulletsList.length; i += 1)
-            {
-                var bullet = bulletsList[i];
-                var bulletPos = bullet.mesh.v3Position;
-                bulletPos[2] -= 0.5;
-                bullet.mesh.setPosition(bulletPos);
-
-                // remove off screen bullets
-                if (bulletPos[2] < this.enemySpawnY) {
-                    bulletsList.splice(i,1);
-                    physicsManager.deleteNode(bullet.node);
-                    scene.removeRootNode(bullet.node);
-                }
-            }
-
-            // Fire bullet
-            this.bulletFireCount += 1;
-            if (protolib.isKeyDown(protolib.keyCodes.SPACE))
-            {
-                if (this.bulletFireCount >= this.bulletFireCooldown) {
-                    this.spawnBullet();
-                    this.bulletFireCount = 0;
-                }
-            }
-
-            // Move player
-            var shipVelocity = this.ship.velocityX;
-            var shipPosition = this.ship.mesh.v3Position;
-            var posDelta = shipPosition[0];
-            if (protolib.isKeyDown(protolib.keyCodes.LEFT))
-            {
-                shipPosition[0] -= shipVelocity;
-            }
-            if (protolib.isKeyDown(protolib.keyCodes.RIGHT))
-            {
-                shipPosition[0] += shipVelocity;
-            }
-
-            shipPosition[0] = protolib.utils.clamp(shipPosition[0], -this.boundaryMax-5, this.boundaryMax+5);
-            this.ship.mesh.setPosition(shipPosition);
-            posDelta = this.ship.mesh.v3Position[0] - posDelta;
-
-            if (posDelta != 0) {
-                protolib.moveCamera(mathDevice.v3Build(posDelta, 0, 0));
-            }
-
-            protolib.draw3DSprite({
-                texture: "textures/space.jpg",
-                v3Position: mathDevice.v3Build(0,-70,-150),
-                size: 195,
-                alpha: 1.0,
-                blendStyle: protolib.blendStyle.ADDITIVE
-            });
-
+            //             this.cameraController.left = 0;
+            //             this.cameraController.right = 0;
+            //             this.cameraController.update();
             this.particleManager.update(protolib.time.app.delta);
+
+            if (this.gameStarted) {
+
+                this.ship.mesh.setEnabled(true);
+
+                // Spawn enemies
+                this.spawnCount += 1;
+                if (this.spawnCount >= this.spawnCooldown) {
+                    this.spawnEnemy();
+                    this.spawnCount = 0;
+                }
+
+                // remove off screen enemies
+                for (var i = 0; i < this.enemiesList.length; i += 1)
+                {
+                    var enemy = this.enemiesList[i];
+                    var enemyPos = enemy.node.getLocalTransform().slice(9,12);
+                    if (enemyPos[2] > 15) {
+                        this.enemiesList.splice(i,1);
+                        physicsManager.deleteNode(enemy.node);
+                        scene.removeRootNode(enemy.node);
+                    }
+                }
+
+                // Move bullets
+                for (var i = 0; i < this.bulletsList.length; i += 1)
+                {
+                    var bullet = this.bulletsList[i];
+                    var bulletPos = bullet.mesh.v3Position;
+                    bulletPos[2] -= 0.5;
+                    bullet.mesh.setPosition(bulletPos);
+
+                    // remove off screen bullets
+                    if (bulletPos[2] < this.enemySpawnY) {
+                        this.bulletsList.splice(i,1);
+                        physicsManager.deleteNode(bullet.node);
+                        scene.removeRootNode(bullet.node);
+                    }
+                }
+
+                // Fire bullet
+                this.bulletFireCount += 1;
+                if (protolib.isKeyDown(protolib.keyCodes.SPACE))
+                {
+                    if (this.bulletFireCount >= this.bulletFireCooldown) {
+                        this.spawnBullet();
+                        this.bulletFireCount = 0;
+                    }
+                }
+
+                // Move player
+                var shipVelocity = this.ship.velocityX;
+                var shipPosition = this.ship.mesh.v3Position;
+                var posDelta = shipPosition[0];
+                if (protolib.isKeyDown(protolib.keyCodes.LEFT))
+                {
+                    shipPosition[0] -= shipVelocity;
+                }
+                if (protolib.isKeyDown(protolib.keyCodes.RIGHT))
+                {
+                    shipPosition[0] += shipVelocity;
+                }
+
+                shipPosition[0] = protolib.utils.clamp(shipPosition[0], -this.boundaryMax-5, this.boundaryMax+5);
+                this.ship.mesh.setPosition(shipPosition);
+                posDelta = this.ship.mesh.v3Position[0] - posDelta;
+
+                if (posDelta != 0) {
+                    protolib.moveCamera(mathDevice.v3Build(posDelta, 0, 0));
+                }
+
+                protolib.draw3DSprite({
+                    texture: "textures/space.jpg",
+                    v3Position: mathDevice.v3Build(0,-70,-150),
+                    size: 195,
+                    alpha: 1.0,
+                    blendStyle: protolib.blendStyle.ADDITIVE
+                });
+
+                // GUI
+                protolib.drawText({
+                    text: "Time: " + this.gameTimeLeft.toFixed(2),
+                    position: [30, 40],
+                    v3Color: mathDevice.v3Build(1,1,1),
+                    scale: 3,
+                    horizontalAlign: protolib.textHorizontalAlign.LEFT
+                });
+                protolib.drawText({
+                    text: "Score: " + this.gameScore,
+                    position: [30, 100],
+                    v3Color: mathDevice.v3Build(1,1,1),
+                    scale: 3,
+                    horizontalAlign: protolib.textHorizontalAlign.LEFT
+                });
+
+                // Game timer
+                this.gameTimeLeft -= delta;
+                if (this.gameTimeLeft <= 0) {
+                    this.gameStarted = false;
+                    this.gameEnded = true;
+                    this.reset();
+                }
+
+            } else {
+
+                // hide ship
+                this.ship.mesh.setEnabled(false);
+
+                if (!this.gameEnded) {
+                    // Main menu
+                    protolib.drawText({
+                        text: "TurbShooter",
+                        position: [protolib.width/2, protolib.height/2-50],
+                        v3Color: mathDevice.v3Build(1,1,1),
+                        scale: 5
+                    });
+
+                    protolib.drawText({
+                        text: "[ Hit SPACE to play ]",
+                        position: [protolib.width/2, protolib.height/2+50],
+                        v3Color: mathDevice.v3Build(1,1,1),
+                        scale: 2
+                    });
+
+                    if (protolib.isKeyDown(protolib.keyCodes.SPACE))
+                    {
+                        this.gameStarted = true;
+                    }
+
+                } else {
+
+                    // Score screen
+                    protolib.drawText({
+                        text: "Score: " + this.gameScore,
+                        position: [protolib.width/2, protolib.height/2-50],
+                        v3Color: mathDevice.v3Build(1,1,1),
+                        scale: 5
+                    });
+
+                    protolib.drawText({
+                        text: "[ Hit SPACE to play again ]",
+                        position: [protolib.width/2, protolib.height/2+50],
+                        v3Color: mathDevice.v3Build(1,1,1),
+                        scale: 2
+                    });
+
+                    this.scoreScreenPauseTime -= delta;
+                    if (this.scoreScreenPauseTime < 0) {
+                        if (protolib.isKeyDown(protolib.keyCodes.SPACE))
+                        {
+                            this.scoreScreenPauseTime = 4.0;
+                            this.gameTimeLeft = this.gameMaxTime;
+                            this.gameScore = 0;
+                            this.gameEnded = false;
+                            this.gameStarted = true;
+                        }
+                    }
+                }
+
+            }
 
             protolib.endFrame();
         }

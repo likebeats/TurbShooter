@@ -48,3 +48,4 @@
 - path: models/skybox.dae
   args: ['-d', '_build/assets/materials/skybox.material.json']
   deps: ['materials/skybox.material']
+- sounds/explosion1.mp3

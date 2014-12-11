@@ -43,12 +43,12 @@ Application.prototype =
 
         this.gameStarted = false;
         this.gameEnded = false;
-        this.gameMaxTime = 15.0;
+        this.gameMaxTime = 30.0;
         this.gameTimeLeft = this.gameMaxTime;
         var gameScore = this.gameScore = 0;
         this.scoreScreenPauseTime = 4.0;
 
-        this.spawnCooldown = 30;
+        this.spawnCooldown = 20;
         this.spawnCount = 0;
         this.boundaryMax = 20;
         this.enemySpawnY = -100;
@@ -94,6 +94,12 @@ Application.prototype =
                     this.particleManager.addInstanceToScene(instance, this.particleNode);
 
                     this.enemiesList.splice(i,1); // remove object from list
+
+                    var sound = protolib.playSound({
+                        sound : "sounds/explosion1.mp3",
+                        background : true,
+                        volume : 0.4
+                    });
                 }
             }
             this.physicsManager.deleteNode(objectB.userData);
@@ -602,6 +608,12 @@ Application.prototype =
                     this.particleManager.addInstanceToScene(instance, this.particleNode);
 
                     this.enemiesList.splice(i,1); // remove enemy from list
+
+                    var sound = protolib.playSound({
+                        sound : "sounds/explosion1.mp3",
+                        background : true,
+                        volume : 0.4
+                    });
                 }
             }
 

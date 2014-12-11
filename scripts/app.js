@@ -54,7 +54,6 @@ Application.prototype =
         var floor = this.floor = Floor.create(graphicsDevice, mathDevice);
         var cameraController = this.cameraController = CameraController.create(graphicsDevice, inputDevice, camera);
 
-
         // Setup particles
         this.initParticles();
 
@@ -167,13 +166,15 @@ Application.prototype =
         // Add light
         protolib.setAmbientLightColor(mathDevice.v3Build(1, 1, 1));
 
-        protolib.setNearFarPlanes(0.01, 200);
+        protolib.setNearFarPlanes(0.01, 300);
 
         //Skybox
-        this.skybox = protolib.loadMesh({
-            mesh: 'models/skybox.dae',
-            v3Size : mathDevice.v3Build(100, 100, 100),
-        });
+//         this.skybox = protolib.loadMesh({
+//             mesh: 'models/skybox.dae',
+//             v3Size : mathDevice.v3Build(100, 100, 100),
+//         });
+
+//         window.console.log(this.skybox);
 
         // Controls
         var settings = {
@@ -202,7 +203,6 @@ Application.prototype =
 
         protolib.setPreRendererDraw(function renderDrawFn() {
 
-            particleManager.update(protolib.time.app.delta);
             //floor.render(graphicsDevice, camera);
             if (settings.debug) {
                 scene.drawPhysicsNodes(graphicsDevice, protolib.globals.shaderManager, camera, physicsManager);
@@ -660,7 +660,9 @@ Application.prototype =
         {
             // Update code goes here
 
-            //this.cameraController.update();
+//             this.cameraController.left = 0;
+//             this.cameraController.right = 0;
+//             this.cameraController.update();
 
             // Spawn enemies
             this.spawnCount += 1;
@@ -724,7 +726,19 @@ Application.prototype =
             this.ship.mesh.setPosition(shipPosition);
             posDelta = this.ship.mesh.v3Position[0] - posDelta;
 
-            if (posDelta != 0) protolib.moveCamera(mathDevice.v3Build(posDelta, 0, 0));
+            if (posDelta != 0) {
+                protolib.moveCamera(mathDevice.v3Build(posDelta, 0, 0));
+            }
+
+            protolib.draw3DSprite({
+                texture: "textures/space.jpg",
+                v3Position: mathDevice.v3Build(0,-70,-150),
+                size: 195,
+                alpha: 1.0,
+                blendStyle: protolib.blendStyle.ADDITIVE
+            });
+
+            this.particleManager.update(protolib.time.app.delta);
 
             protolib.endFrame();
         }
